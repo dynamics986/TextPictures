@@ -1,0 +1,8 @@
+__pycache__/
+.venv/
+*.pyc
+
+input.jpg
+output_detail.png
+output_blur.png
+output_compare.png
