@@ -37,10 +37,9 @@ This version treats the image as a grid of text cells rather than drawing normal
 
 Each source block becomes one `30x30` output cell:
 
-- Very dark cells use the main silhouette character `牛` in bold SimHei-style 18px text.
-- Dark cells use visually dense characters such as `富`, `强`, `谐`, `敬`, `善`, `港`, and `等` in larger 16px text.
-- Middle-tone cells use medium-density characters such as `明`, `和`, `法`, `治`, `爱`, `国`, `诚`, `信`, `香`, and `学` in 14px text.
-- Light cells use simpler characters such as `民`, `主`, `文`, `明`, `自`, `由`, `平`, `公`, `正`, `业`, and `友` in 12px text.
-- Very bright cells use the simplest characters such as `主`, `文`, `由`, `中`, `大`, `公`, `正`, and `友` in 10px text.
+- The main image area uses eight brightness tiers: `IIII`, `港`, `香`, `牛`, `学`, `中`, `文`, and `大`, from darkest to brightest.
+- The darkest tier uses bold repeated `I` letters so the cell has enough black ink to read as a true shadow. The remaining tiers are ordered by measured visual ink density, so dense bold characters represent darker tones and simpler regular characters represent lighter tones.
+- The exact brightness thresholds are calculated from the current input image using adaptive quantiles. This makes the available character tiers spread across the actual photo instead of relying on fixed values that may be too dark or too bright for a particular image.
+- The leftmost and rightmost output columns do not sample the image. Instead, they write `富强民主文明和谐自由平等公正法治爱国敬业诚信友善` from top to bottom, repeating when the image is taller than the phrase.
 
-The tiering is based on rough visual stroke density: characters with more strokes and heavier shapes create darker visual weight, while simpler characters leave more white space. Because every output cell is a real Chinese character on a white background, the result is readable up close as a text grid. From farther away, the gradual shift from large dense characters to small simple characters gives the silhouette more tonal detail and a livelier contour. The script also creates a Gaussian-blurred preview with OpenCV to simulate this far-view effect, then combines the original image, the detailed text mosaic, and the blurred preview into one comparison image.
+All cells use the same `27px` font size. This size was chosen to fill most of each `30x30` cell while still leaving enough margin to prevent neighboring characters from touching or overlapping. The tonal tiering is therefore based on glyph shape, boldness, and adaptive thresholding rather than font-size changes. Because every output cell is a real character on a white background, the result is readable up close as a text grid. From farther away, the gradual shift across the eight tiers gives the silhouette more tonal detail and a livelier contour. The script also creates a Gaussian-blurred preview with OpenCV to simulate this far-view effect, then combines the original image, the detailed text mosaic, and the blurred preview into one comparison image.

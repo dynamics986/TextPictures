@@ -28,47 +28,54 @@ COMPARE_PATH = Path("output_compare.png")
 
 GRID_SIZE = 15
 OUTPUT_SCALE = 30
+CELL_FONT_SIZE = 27
 MAX_FULL_BLUR_PIXELS = 80_000_000
 MAX_PREVIEW_SIDE = 2400
 MAX_COMPARE_PANEL_SIDE = 1600
 
-DARK_CHAR = "牛"
-BACKGROUND_CHARS = list(
-    "富强民主文明和谐自由平等公正法治爱国敬业诚信友善香港中文大学"
-)
+SIDE_TEXT = "富强民主文明和谐自由平等公正法治爱国敬业诚信友善"
 
-# Characters are grouped by visual density. Darker image regions use larger,
-# bolder, and more complex characters; brighter regions use smaller, simpler
-# characters to preserve a white-background feeling from a distance.
+# Characters are ordered from darkest visual weight to lightest visual weight.
+# All tiers use the same font size; tone comes from glyph shape and boldness.
 BRIGHTNESS_TIERS = [
     {
-        "max_value": 55,
-        "chars": [DARK_CHAR],
-        "font_key": "dark",
+        "chars": ["IIII"],
+        "font_key": "latin",
         "bold": True,
     },
     {
-        "max_value": 95,
-        "chars": list("富强谐敬善港等"),
-        "font_key": "heavy",
+        "chars": ["港"],
+        "font_key": "simsun",
         "bold": True,
     },
     {
-        "max_value": 135,
-        "chars": list("明和法治爱国诚信香学"),
-        "font_key": "medium",
+        "chars": ["香"],
+        "font_key": "simsun",
+        "bold": True,
+    },
+    {
+        "chars": ["牛"],
+        "font_key": "simhei",
+        "bold": True,
+    },
+    {
+        "chars": ["学"],
+        "font_key": "simsun",
         "bold": False,
     },
     {
-        "max_value": 180,
-        "chars": list("民主文明自由平公正业友"),
-        "font_key": "light",
+        "chars": ["中"],
+        "font_key": "simsun",
         "bold": False,
     },
     {
-        "max_value": 256,
-        "chars": list("主文由中大公正友"),
-        "font_key": "very_light",
+        "chars": ["文"],
+        "font_key": "simsun",
+        "bold": False,
+    },
+    {
+        "chars": ["大"],
+        "font_key": "simsun",
         "bold": False,
     },
 ]
@@ -155,56 +162,10 @@ def measure_text(
     return bbox[0], bbox[1], text_width, text_height
 
 
-def create_text_patch(
-    character: str,
-    font: ImageFont.ImageFont,
-    patch_width: int,
-    patch_height: int,
-    bold: bool,
-) -> Image.Image:
-    """Create one reusable white patch filled with dense repeated black text."""
-    patch = Image.new("RGB", (patch_width, patch_height), WHITE)
-    draw = ImageDraw.Draw(patch)
-    bbox_left, bbox_top, text_width, text_height = measure_text(draw, character, font)
-
-    # Keep the characters close together so the output is visibly text-dense.
-    step_x = max(1, text_width + 2)
-    step_y = max(1, text_height + 2)
-
-    start_x = -bbox_left
-    start_y = -bbox_top
-
-    for y in range(start_y, patch_height, step_y):
-        for x in range(start_x, patch_width, step_x):
-            if bold:
-                draw_bold_text(draw, (x, y), character, font, BLACK)
-            else:
-                draw.text((x, y), character, font=font, fill=BLACK)
-
-    return patch
-
-
-def get_text_patch(
-    patch_cache: dict[tuple[str, int, int, bool], Image.Image],
-    character: str,
-    font: ImageFont.ImageFont,
-    patch_width: int,
-    patch_height: int,
-    bold: bool,
-) -> Image.Image:
-    """Return a cached text patch so repeated grid cells are fast to paste."""
-    cache_key = (character, patch_width, patch_height, bold)
-    if cache_key not in patch_cache:
-        patch_cache[cache_key] = create_text_patch(
-            character, font, patch_width, patch_height, bold
-        )
-    return patch_cache[cache_key]
-
-
-def choose_character(average_value: float) -> tuple[str, str, bool]:
+def choose_character(average_value: float, thresholds: list[float]) -> tuple[str, str, bool]:
     """Choose a density tier for one grid cell based on its average brightness."""
-    for tier in BRIGHTNESS_TIERS:
-        if average_value < tier["max_value"]:
+    for tier, threshold in zip(BRIGHTNESS_TIERS, thresholds):
+        if average_value <= threshold:
             return (
                 random.choice(tier["chars"]),
                 tier["font_key"],
@@ -217,6 +178,39 @@ def choose_character(average_value: float) -> tuple[str, str, bool]:
         fallback_tier["font_key"],
         fallback_tier["bold"],
     )
+
+
+def build_grid_brightness(
+    value_array: np.ndarray,
+    input_width: int,
+    input_height: int,
+    grid_columns: int,
+    grid_rows: int,
+) -> np.ndarray:
+    """Calculate the average HSV value for every source grid cell."""
+    grid_values = np.zeros((grid_rows, grid_columns), dtype=np.float32)
+
+    for row_index, source_y in enumerate(range(0, input_height, GRID_SIZE)):
+        source_bottom = min(source_y + GRID_SIZE, input_height)
+        for column_index, source_x in enumerate(range(0, input_width, GRID_SIZE)):
+            source_right = min(source_x + GRID_SIZE, input_width)
+            grid = value_array[source_y:source_bottom, source_x:source_right]
+            grid_values[row_index, column_index] = float(np.mean(grid))
+
+    return grid_values
+
+
+def calculate_adaptive_thresholds(grid_values: np.ndarray) -> list[float]:
+    """Create image-specific brightness thresholds for clearer tonal separation."""
+    if grid_values.shape[1] > 2:
+        sampled_values = grid_values[:, 1:-1].reshape(-1)
+    else:
+        sampled_values = grid_values.reshape(-1)
+
+    quantiles = [0.10, 0.22, 0.35, 0.50, 0.65, 0.78, 0.90]
+    thresholds = [float(np.quantile(sampled_values, q)) for q in quantiles]
+    thresholds.append(256.0)
+    return thresholds
 
 
 def draw_character_cell(
@@ -251,6 +245,15 @@ def generate_detail_image(input_image: Image.Image) -> Image.Image:
 
     grid_columns = (input_width + GRID_SIZE - 1) // GRID_SIZE
     grid_rows = (input_height + GRID_SIZE - 1) // GRID_SIZE
+    grid_values = build_grid_brightness(
+        value_array, input_width, input_height, grid_columns, grid_rows
+    )
+    thresholds = calculate_adaptive_thresholds(grid_values)
+    LOGGER.info(
+        "Adaptive brightness thresholds: %s",
+        ", ".join(f"{threshold:.1f}" for threshold in thresholds[:-1]),
+    )
+
     output_width = grid_columns * OUTPUT_SCALE
     output_height = grid_rows * OUTPUT_SCALE
     detail_image = Image.new("RGB", (output_width, output_height), WHITE)
@@ -276,25 +279,32 @@ def generate_detail_image(input_image: Image.Image) -> Image.Image:
     ]
 
     fonts = {
-        "dark": load_verified_font(simhei_candidates, 18, "SimHei 18", DARK_CHAR),
-        "heavy": load_verified_font(simsun_candidates, 16, "SimSun 16", "富"),
-        "medium": load_verified_font(simsun_candidates, 14, "SimSun 14", "明"),
-        "light": load_verified_font(simsun_candidates, 12, "SimSun 12", "民"),
-        "very_light": load_verified_font(simsun_candidates, 10, "SimSun 10", "文"),
+        "latin": load_verified_font(
+            simhei_candidates, CELL_FONT_SIZE, f"Latin {CELL_FONT_SIZE}", "I"
+        ),
+        "simhei": load_verified_font(
+            simhei_candidates, CELL_FONT_SIZE, f"SimHei {CELL_FONT_SIZE}", "牛"
+        ),
+        "simsun": load_verified_font(
+            simsun_candidates, CELL_FONT_SIZE, f"SimSun {CELL_FONT_SIZE}", "富"
+        ),
     }
 
     for row_index, source_y in enumerate(range(0, input_height, GRID_SIZE), start=1):
         LOGGER.info("Processing row %s of %s...", row_index, grid_rows)
 
         for column_index, source_x in enumerate(range(0, input_width, GRID_SIZE)):
-            source_right = min(source_x + GRID_SIZE, input_width)
-            source_bottom = min(source_y + GRID_SIZE, input_height)
-            grid = value_array[source_y:source_bottom, source_x:source_right]
-            average_value = float(np.mean(grid))
-
             cell_left = column_index * OUTPUT_SCALE
             cell_top = (row_index - 1) * OUTPUT_SCALE
-            character, font_key, bold = choose_character(average_value)
+
+            if column_index in (0, grid_columns - 1):
+                character = SIDE_TEXT[(row_index - 1) % len(SIDE_TEXT)]
+                font_key = "simsun"
+                bold = True
+            else:
+                average_value = float(grid_values[row_index - 1, column_index])
+                character, font_key, bold = choose_character(average_value, thresholds)
+
             font = fonts[font_key]
             draw_character_cell(
                 draw, character, font, cell_left, cell_top, OUTPUT_SCALE, bold
