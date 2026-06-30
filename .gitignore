@@ -1,8 +1,11 @@
 __pycache__/
 .venv/
 *.pyc
+.DS_Store
 
-input.jpg
+# input.jpg
 output_detail.png
 output_blur.png
 output_compare.png
+# output_input.jpg
+web_outputs/
