@@ -171,7 +171,7 @@
     }
 
     .empty {
-      min-height: 430px;
+      min-height: 333px;
       display: grid;
       place-items: center;
       text-align: center;
@@ -209,20 +209,18 @@
     }
 
     .site-footer {
-      position: fixed;
-      left: 16px;
-      bottom: 12px;
       color: var(--muted);
-      font-size: 13px;
-      line-height: 1;
-      pointer-events: none;
+      font-size: clamp(11px, 1.5vw, 13px);
+      line-height: 1.4;
+      padding: 0 16px 16px;
+      text-align: center;
     }
 
     .hidden {
       display: none;
     }
 
-    @media (max-width: 820px) {
+    @media (max-width: 960px) {
       header,
       .layout,
       .result-head {
@@ -233,6 +231,19 @@
       .controls {
         position: static;
       }
+
+      .downloads {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .download {
+        min-width: 0;
+        padding: 0 8px;
+        font-size: clamp(12px, 3.5vw, 16px);
+        white-space: nowrap;
+      }
     }
   </style>
 </head>
@@ -241,7 +252,7 @@
     <header>
       <div>
         <h1>TextPictures</h1>
-        <p class="intro">Upload one image and generate a Chinese-character density mosaic directly in your browser.</p>
+        <p class="intro">Upload a image and generate a Chinese-character density mosaic.</p>
       </div>
     </header>
 
@@ -279,7 +290,7 @@
           <h2>Output</h2>
           <div class="downloads">
             <a id="detailDownload" class="download" aria-disabled="true">Detail</a>
-            <a id="blurDownload" class="download" aria-disabled="true">Blur Preview</a>
+            <a id="blurDownload" class="download" aria-disabled="true">Blur</a>
             <a id="compareDownload" class="download" aria-disabled="true">Compare</a>
           </div>
         </div>
@@ -324,6 +335,7 @@
       { text: "大", weight: 500 }
     ];
     const MAX_SOURCE_SIDE = 1800;
+    const MAX_DETAIL_SIDE = 4096;
     const MAX_PREVIEW_SIDE = 1600;
 
     const imageInput = document.getElementById("imageInput");
@@ -362,15 +374,12 @@
         setBusy(true);
         setStatus("Loading image...");
         const image = await loadImage(file);
-        const source = drawSourceCanvas(image);
+        const source = drawSourceCanvas(image, getMaxSourceSide(Number(gridSizeInput.value), Number(cellSizeInput.value)));
         setStatus("Building text mosaic...");
-        const detail = generateDetailCanvas(source, Number(gridSizeInput.value), Number(cellSizeInput.value));
-        copyCanvas(detail, detailCanvas);
+        const detail = renderDetailCanvas(source, Number(gridSizeInput.value), Number(cellSizeInput.value), detailCanvas);
         setStatus("Creating preview and comparison...");
-        const blur = createBlurCanvas(detail);
-        copyCanvas(blur, blurCanvas);
-        const compare = createCompareCanvas(source, detail, blur);
-        copyCanvas(compare, compareCanvas);
+        const blur = renderBlurCanvas(detail, blurCanvas);
+        renderCompareCanvas(source, detail, blur, compareCanvas);
         updateDownload(detailDownload, detailCanvas, "textpicture_detail.png");
         updateDownload(blurDownload, blurCanvas, "textpicture_blur.png");
         updateDownload(compareDownload, compareCanvas, "textpicture_compare.png");
@@ -410,8 +419,13 @@
       });
     }
 
-    function drawSourceCanvas(image) {
-      const scale = Math.min(1, MAX_SOURCE_SIDE / image.naturalWidth, MAX_SOURCE_SIDE / image.naturalHeight);
+    function getMaxSourceSide(gridSize, cellSize) {
+      const maxCells = Math.max(1, Math.floor(MAX_DETAIL_SIDE / cellSize));
+      return Math.min(MAX_SOURCE_SIDE, maxCells * gridSize);
+    }
+
+    function drawSourceCanvas(image, maxSourceSide) {
+      const scale = Math.min(1, maxSourceSide / image.naturalWidth, maxSourceSide / image.naturalHeight);
       const width = Math.max(1, Math.round(image.naturalWidth * scale));
       const height = Math.max(1, Math.round(image.naturalHeight * scale));
       const canvas = document.createElement("canvas");
@@ -422,7 +436,7 @@
       return canvas;
     }
 
-    function generateDetailCanvas(sourceCanvas, gridSize, cellSize) {
+    function renderDetailCanvas(sourceCanvas, gridSize, cellSize, targetCanvas) {
       const sourceCtx = sourceCanvas.getContext("2d", { willReadFrequently: true });
       const sourceData = sourceCtx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height).data;
       const columns = Math.ceil(sourceCanvas.width / gridSize);
@@ -436,12 +450,11 @@
       }
 
       const thresholds = adaptiveThresholds(values, columns);
-      const canvas = document.createElement("canvas");
-      canvas.width = columns * cellSize;
-      canvas.height = rows * cellSize;
-      const ctx = canvas.getContext("2d");
+      targetCanvas.width = columns * cellSize;
+      targetCanvas.height = rows * cellSize;
+      const ctx = targetCanvas.getContext("2d");
       ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
 
@@ -458,7 +471,7 @@
         }
       }
 
-      return canvas;
+      return targetCanvas;
     }
 
     function averageValue(data, width, height, column, row, gridSize) {
@@ -522,31 +535,29 @@
       }
     }
 
-    function createBlurCanvas(detail) {
-      const canvas = document.createElement("canvas");
+    function renderBlurCanvas(detail, targetCanvas) {
       const scale = Math.min(1, MAX_PREVIEW_SIDE / detail.width, MAX_PREVIEW_SIDE / detail.height);
-      canvas.width = Math.max(1, Math.round(detail.width * scale));
-      canvas.height = Math.max(1, Math.round(detail.height * scale));
-      const ctx = canvas.getContext("2d");
+      targetCanvas.width = Math.max(1, Math.round(detail.width * scale));
+      targetCanvas.height = Math.max(1, Math.round(detail.height * scale));
+      const ctx = targetCanvas.getContext("2d");
       ctx.filter = "blur(7px)";
-      ctx.drawImage(detail, 0, 0, canvas.width, canvas.height);
+      ctx.drawImage(detail, 0, 0, targetCanvas.width, targetCanvas.height);
       ctx.filter = "none";
-      return canvas;
+      return targetCanvas;
     }
 
-    function createCompareCanvas(source, detail, blur) {
+    function renderCompareCanvas(source, detail, blur, targetCanvas) {
       const panelWidth = Math.min(900, detail.width);
       const panelHeight = Math.round(panelWidth * detail.height / detail.width);
-      const canvas = document.createElement("canvas");
-      canvas.width = panelWidth * 3;
-      canvas.height = panelHeight;
-      const ctx = canvas.getContext("2d");
+      targetCanvas.width = panelWidth * 3;
+      targetCanvas.height = panelHeight;
+      const ctx = targetCanvas.getContext("2d");
       ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
       drawFit(ctx, source, 0, 0, panelWidth, panelHeight);
       drawFit(ctx, detail, panelWidth, 0, panelWidth, panelHeight);
       drawFit(ctx, blur, panelWidth * 2, 0, panelWidth, panelHeight);
-      return canvas;
+      return targetCanvas;
     }
 
     function drawFit(ctx, source, left, top, width, height) {
@@ -556,14 +567,6 @@
       const x = left + (width - drawWidth) / 2;
       const y = top + (height - drawHeight) / 2;
       ctx.drawImage(source, x, y, drawWidth, drawHeight);
-    }
-
-    function copyCanvas(source, target) {
-      target.width = source.width;
-      target.height = source.height;
-      const ctx = target.getContext("2d");
-      ctx.clearRect(0, 0, target.width, target.height);
-      ctx.drawImage(source, 0, 0);
     }
 
     function updateDownload(link, canvas, filename) {

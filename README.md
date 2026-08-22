@@ -80,3 +80,5 @@ Related tools that explore image-to-character rendering and browser-based ASCII 
 - [Glyphtrix](https://glyphtrix.art/) — local browser tool for image, video, and webcam character art.
 - [Cinerune](https://cinerune.com/) — browser-based ASCII video editor with timelines, effects, and Unicode glyphs.
 - [ASCII Motion](https://ascii-motion.com/) — browser-based animated ASCII art tool.
+
+> Future ideas: If a camera and a screen device available, it is a cool idea to implement the function of real-time conversion of a video into our density mosaic.
