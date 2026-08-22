@@ -32,7 +32,7 @@ def ensure_pillow_installed() -> None:
         or ImageFont is None
         or ImageOps is None
     ):
-        raise RuntimeError("lack Pillow, please run: pip install pillow")
+        raise RuntimeError("Pillow is not installed. Please run: pip install pillow")
 
 
 def is_supported_image(path: Path) -> bool:

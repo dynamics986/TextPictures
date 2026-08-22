@@ -1,9 +1,8 @@
 # TextPictures
 
-Demo: https://dynamics986.github.io/TextPictures/ 
+> Demo: https://dynamics986.github.io/TextPictures/ 
 
-TextPictures turns an input image into a high-resolution Chinese-character density mosaic.
-Viewed up close, the output is made from many small repeated characters. Viewed from a distance, the original image shape appears through the character density. The project can run as a static GitHub Pages website or as a local command-line script.
+TextPictures turns an image into a Chinese-character density mosaic. Viewed up close, the output is made from many small repeated characters. Viewed from a distance, the original image shape appears through the character density. 
 
 ## Example
 
@@ -12,9 +11,9 @@ Viewed up close, the output is made from many small repeated characters. Viewed 
 | <img src="input.jpg" alt="Input image" width="420"> | <img src="output.jpg" alt="TextPictures output image" width="420"> |
 
 
-## Website Usage
+## Local Website Usage
 
-The website is `index.html`. It runs completely in the browser, so GitHub Pages can host it without a Python server. Users upload one JPG, PNG, BMP, or WEBP image, preview the generated result, and download PNG outputs.
+The website is `index.html`. It runs completely in the browser. Users upload one JPG, PNG, BMP, or WEBP image, preview the generated result, and download PNG outputs.
 
 To test the website locally with a simple static server:
 
@@ -34,10 +33,6 @@ The website provides download buttons for:
 - `textpicture_blur.png`: a blurred far-view preview.
 - `textpicture_compare.png`: a side-by-side comparison with the original image, detailed mosaic, and blurred preview.
 
-To publish with GitHub Pages, set the Pages source to the repository root, or copy `index.html` to the branch or folder used by your Pages site.
-
-Safari may ask for download permission the first time a generated PNG is saved. If `index.html` is opened directly as a local `file://` page, Safari can show a blank website name in that permission dialog. When the page is served from GitHub Pages or a local HTTP server, Safari uses the actual site address instead.
-
 ## CLI Usage
 
 The command-line Python version uses `uv` for dependency management.
@@ -54,9 +49,7 @@ uv run python textpictures.py
 
 The script checks `input.jpg` first, then `input.png`. If neither file exists, it logs `input.jpg does not exist` and exits without generating output images.
 
-## CLI Outputs
-
-Running the script generates:
+After running the script, it generates:
 
 - `output_detail.png`: the detailed high-resolution text mosaic.
 - `output_blur.png`: a Gaussian-blurred preview that simulates viewing the mosaic from far away.
@@ -64,7 +57,7 @@ Running the script generates:
 
 For very large input images, `output_detail.png` keeps the full high-resolution scale, while `output_blur.png` and `output_compare.png` are generated as resized preview images to avoid impractically large files.
 
-## How It Works
+## Principles
 
 Both the static website and the Python script treat the image as a grid of text cells rather than drawing normal pixels. The website uses JavaScript Canvas so it can run on GitHub Pages without a backend. The Python script reads `input.jpg` or `input.png` and uses the Pillow/OpenCV pipeline in `textpictures.py`.
 
@@ -72,25 +65,18 @@ In the Python version, the input image is divided into `15x15` pixel blocks. For
 
 Each source block becomes one `30x30` output cell:
 
-- The main image area uses eight brightness tiers: `IIII`, `港`, `香`, `牛`, `学`, `中`, `文`, and `大`, from darkest to brightest.
+- The main image area uses eight brightness tiers: `I`, `港`, `香`, `牛`, `学`, `中`, `文`, and `大`, from darkest to brightest.
 - The darkest tier uses bold repeated `I` letters so the cell has enough black ink to read as a true shadow. The remaining tiers are ordered by measured visual ink density, so dense bold characters represent darker tones and simpler regular characters represent lighter tones.
 - The exact brightness thresholds are calculated from the current input image using adaptive quantiles. This makes the available character tiers spread across the actual photo instead of relying on fixed values that may be too dark or too bright for a particular image.
 
 All cells use the same `27px` font size. This size was chosen to fill most of each `30x30` cell while still leaving enough margin to prevent neighboring characters from touching or overlapping. The tonal tiering is therefore based on glyph shape, boldness, and adaptive thresholding rather than font-size changes. 
 
-Because every output cell is a real character on a white background, the result is readable up close as a text grid. From farther away, the gradual shift across the eight tiers gives the silhouette more tonal detail and a livelier contour.
-
-The script also creates a Gaussian-blurred preview with OpenCV to simulate this far-view effect, then combines the original image, the detailed text mosaic, and the blurred preview into one comparison image.
 
 ## References
 
-Related tools and research projects that explore image-to-character rendering, browser-based ASCII art, animation, and structure-aware text art:
+Related tools that explore image-to-character rendering and browser-based ASCII art:
 
 - [Asciify](https://asciify.org/) — browser-based image and video ASCII art engine.
 - [Glyphtrix](https://glyphtrix.art/) — local browser tool for image, video, and webcam character art.
 - [Cinerune](https://cinerune.com/) — browser-based ASCII video editor with timelines, effects, and Unicode glyphs.
 - [ASCII Motion](https://ascii-motion.com/) — browser-based animated ASCII art tool.
-- [Structure-based ASCII Art](https://research.cuhk.edu.hk/en/publications/structure-based-ascii-art-2/) — research on representing image structure with character shapes.
-- [asciify-engine](https://github.com/ayangabryl/asciify-engine) — open-source browser engine for images, GIFs, and video.
-- [Glyph](https://github.com/Codeptor/glyph) — open-source real-time ASCII art generator with dithering and visual effects.
-- [Video to ASCII](https://github.com/collidingScopes/ascii) — open-source JavaScript and Canvas video-to-ASCII project.

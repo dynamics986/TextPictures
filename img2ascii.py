@@ -6,7 +6,11 @@ from __future__ import annotations
 import argparse
 from io import BytesIO
 from pathlib import Path
-from typing import Iterable
+from typing import TYPE_CHECKING, Iterable
+
+if TYPE_CHECKING:
+    from PIL.Image import Image as PillowImage
+    from PIL.ImageFont import FreeTypeFont, ImageFont as PillowFont
 
 try:
     from PIL import Image, ImageDraw, ImageFont
@@ -26,7 +30,7 @@ DEFAULT_MAX_BYTES = 1_000_000
 def ensure_pillow_installed() -> None:
     """Raise a clear error when Pillow is not available."""
     if Image is None or ImageDraw is None or ImageFont is None:
-        raise RuntimeError("缺少 Pillow，请先运行: pip install pillow")
+        raise RuntimeError("Pillow is not installed. Please run: pip install pillow")
 
 
 def is_supported_image(path: Path) -> bool:
@@ -39,11 +43,11 @@ def parse_scale(value: str) -> float:
     try:
         scale = float(value)
     except ValueError as exc:
-        raise argparse.ArgumentTypeError("scale 必须是数字") from exc
+        raise argparse.ArgumentTypeError("scale must be a number") from exc
 
     if scale not in VALID_SCALES:
         valid_values = ", ".join(str(item) for item in VALID_SCALES)
-        raise argparse.ArgumentTypeError(f"scale 只能是以下值之一: {valid_values}")
+        raise argparse.ArgumentTypeError(f"scale must be one of: {valid_values}")
 
     return scale
 
@@ -53,10 +57,10 @@ def parse_max_mb(value: str) -> float:
     try:
         max_mb = float(value)
     except ValueError as exc:
-        raise argparse.ArgumentTypeError("max-mb 必须是数字") from exc
+        raise argparse.ArgumentTypeError("max-mb must be a number") from exc
 
     if max_mb <= 0:
-        raise argparse.ArgumentTypeError("max-mb 必须大于 0")
+        raise argparse.ArgumentTypeError("max-mb must be greater than 0")
 
     return max_mb
 
@@ -106,7 +110,7 @@ def save_ascii_txt(rows: list[str], output_path: Path) -> None:
     output_path.write_text("\n".join(rows), encoding="utf-8")
 
 
-def find_monospace_font(font_size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+def find_monospace_font(font_size: int) -> FreeTypeFont | PillowFont:
     """Return a usable monospace font, falling back to Pillow's default font."""
     ensure_pillow_installed()
     font_candidates = [
@@ -140,7 +144,7 @@ def downsample_rows(rows: list[str], step: int) -> list[str]:
     return [row[::step] for row in sampled_rows]
 
 
-def render_ascii_image(rows: list[str], font_size: int) -> Image.Image:
+def render_ascii_image(rows: list[str], font_size: int) -> PillowImage:
     """Render ASCII rows to a white-background, black-text image."""
     ensure_pillow_installed()
     if not rows:
@@ -222,7 +226,7 @@ def build_output_path(image_path: Path) -> Path:
 def convert_image(image_path: Path, scale: float, max_bytes: int = DEFAULT_MAX_BYTES) -> Path:
     """Convert one image to an ASCII JPG and return the output path."""
     if not is_supported_image(image_path):
-        raise ValueError(f"不是支持的图片格式: {image_path}")
+        raise ValueError(f"Unsupported image format: {image_path}")
 
     rows = image_to_ascii_rows(image_path, scale)
     output_path = build_output_path(image_path)
@@ -233,22 +237,22 @@ def convert_image(image_path: Path, scale: float, max_bytes: int = DEFAULT_MAX_B
 def convert_path(input_path: Path, scale: float, max_bytes: int = DEFAULT_MAX_BYTES) -> None:
     """Convert a single image or all supported images directly inside a folder."""
     if not input_path.exists():
-        raise FileNotFoundError(f"输入路径不存在: {input_path}")
+        raise FileNotFoundError(f"Input path does not exist: {input_path}")
 
     if input_path.is_file():
         if not is_supported_image(input_path):
-            raise ValueError(f"不是支持的图片格式: {input_path}")
+            raise ValueError(f"Unsupported image format: {input_path}")
 
         output_path = convert_image(input_path, scale, max_bytes=max_bytes)
-        print(f"已转换: {input_path} -> {output_path}")
+        print(f"Converted: {input_path} -> {output_path}")
         return
 
     if not input_path.is_dir():
-        raise ValueError(f"输入路径不是文件或文件夹: {input_path}")
+        raise ValueError(f"Input path is not a file or directory: {input_path}")
 
     image_paths = list(iter_images(input_path))
     if not image_paths:
-        print(f"文件夹里没有支持的图片: {input_path}")
+        print(f"No supported images found in directory: {input_path}")
         return
 
     success_count = 0
@@ -259,30 +263,30 @@ def convert_path(input_path: Path, scale: float, max_bytes: int = DEFAULT_MAX_BY
             output_path = convert_image(image_path, scale, max_bytes=max_bytes)
         except Exception as exc:  # noqa: BLE001 - keep batch conversion going.
             fail_count += 1
-            print(f"转换失败: {image_path}，原因: {exc}")
+            print(f"Conversion failed: {image_path}; reason: {exc}")
             continue
 
         success_count += 1
-        print(f"已转换: {image_path} -> {output_path}")
+        print(f"Converted: {image_path} -> {output_path}")
 
-    print(f"完成: 成功 {success_count} 张，失败 {fail_count} 张。")
+    print(f"Done: {success_count} succeeded, {fail_count} failed.")
 
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the command line parser."""
-    parser = argparse.ArgumentParser(description="将图片转换为 ASCII 字符画 JPG。")
-    parser.add_argument("input", type=Path, help="输入图片文件或图片文件夹")
+    parser = argparse.ArgumentParser(description="Convert images to ASCII art JPG files.")
+    parser.add_argument("input", type=Path, help="Input image file or directory")
     parser.add_argument(
         "--scale",
         type=parse_scale,
         default=0.25,
-        help="缩放比例，可选: 0.1, 0.2, 0.25, 0.5, 1.0，默认: 0.25",
+        help="Scale factor; choices: 0.1, 0.2, 0.25, 0.5, 1.0 (default: 0.25)",
     )
     parser.add_argument(
         "--max-mb",
         type=parse_max_mb,
         default=1.0,
-        help="每张输出 JPG 的最大体积，单位 MB，默认: 1.0",
+        help="Maximum output JPG size in MB (default: 1.0)",
     )
     return parser
 
@@ -298,10 +302,10 @@ def main() -> int:
     try:
         convert_path(input_path, args.scale, max_bytes=max_bytes)
     except Exception as exc:  # noqa: BLE001 - print clean CLI errors.
-        print(f"错误: {exc}")
+        print(f"Error: {exc}")
         return 1
 
-    print(f"输出位置: {Path.cwd()}")
+    print(f"Output directory: {Path.cwd()}")
     return 0
 
 
