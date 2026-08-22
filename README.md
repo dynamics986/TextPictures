@@ -82,32 +82,15 @@ Because every output cell is a real character on a white background, the result 
 
 The script also creates a Gaussian-blurred preview with OpenCV to simulate this far-view effect, then combines the original image, the detailed text mosaic, and the blurred preview into one comparison image.
 
-## Git Pull And Push Guide
+## References
 
-Before pulling from the `prototype` branch, configure Git to use merge commits instead of rebasing:
+Related tools and research projects that explore image-to-character rendering, browser-based ASCII art, animation, and structure-aware text art:
 
-```bash
-git config pull.rebase false
-git pull origin prototype
-```
-
-If there is a conflict like this:
-
-```text
-CONFLICT (modify/delete): .DS_Store deleted in f1aa7bd08f607f3780ac40bfb87030282b119054 and modified in HEAD.  Version HEAD of .DS_Store left in tree.
-Automatic merge failed; fix conflicts and then commit the result.
-```
-
-Resolve the `.DS_Store` index conflict with:
-
-```bash
-git rm --cached .DS_Store
-```
-
-Then make another commit and push to `prototype`:
-
-```bash
-git add .DS_Store
-git commit -m "third commit"
-git push origin prototype
-```
+- [Asciify](https://asciify.org/) — browser-based image and video ASCII art engine.
+- [Glyphtrix](https://glyphtrix.art/) — local browser tool for image, video, and webcam character art.
+- [Cinerune](https://cinerune.com/) — browser-based ASCII video editor with timelines, effects, and Unicode glyphs.
+- [ASCII Motion](https://ascii-motion.com/) — browser-based animated ASCII art tool.
+- [Structure-based ASCII Art](https://research.cuhk.edu.hk/en/publications/structure-based-ascii-art-2/) — research on representing image structure with character shapes.
+- [asciify-engine](https://github.com/ayangabryl/asciify-engine) — open-source browser engine for images, GIFs, and video.
+- [Glyph](https://github.com/Codeptor/glyph) — open-source real-time ASCII art generator with dithering and visual effects.
+- [Video to ASCII](https://github.com/collidingScopes/ascii) — open-source JavaScript and Canvas video-to-ASCII project.
