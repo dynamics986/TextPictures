@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://dynamics986.github.io/TextPictures/sitemap.xml
