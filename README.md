@@ -34,7 +34,7 @@ The website provides download buttons for:
 - `textpicture_blur.png`: a blurred far-view preview.
 - `textpicture_compare.png`: a side-by-side comparison with the original image, detailed mosaic, and blurred preview.
 
-To deploy with GitHub Pages, set the Pages source to the repository root, or copy `index.html` to the branch or folder used by your Pages site.
+To publish with GitHub Pages, set the Pages source to the repository root, or copy `index.html` to the branch or folder used by your Pages site.
 
 Safari may ask for download permission the first time a generated PNG is saved. If `index.html` is opened directly as a local `file://` page, Safari can show a blank website name in that permission dialog. When the page is served from GitHub Pages or a local HTTP server, Safari uses the actual site address instead.
 
